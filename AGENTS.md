@@ -12,8 +12,9 @@ des données. Spec : `docs/spec-brique-1.md`. Plan : `docs/plan-brique-1.md`.
     npm test                 # kit (node --test)
     npm run test:relais      # relais (tsc + Vitest)
     npm run e2e              # bout en bout : kit contre un relais local (wrangler dev)
+    npm run types            # régénère kit/*.d.ts (à committer : SIMATIS OS est en TypeScript)
 
-La CI rejoue `npm test` à la racine et dans `relais/` sur chaque PR et chaque push sur `main`.
+La CI rejoue tout cela (et vérifie que les `.d.ts` sont à jour) sur chaque PR et chaque push sur `main`.
 
 ## Branches
 
