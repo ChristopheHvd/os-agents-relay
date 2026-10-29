@@ -8,8 +8,11 @@
     {
       "binding": "DB",
       "database_name": "os-agents-relay",
+      "database_id": "3ab2c6c6-9ca8-4e1e-9728-60752c59c252",
       "migrations_dir": "migrations"
     }
   ],
-  "triggers": { "crons": ["17 3 * * *"] }
+  "triggers": { "crons": ["17 3 * * *"] },
+  "routes": [{ "pattern": "relais.alpes-ia.fr", "custom_domain": true }],
+  "workers_dev": false
 }
