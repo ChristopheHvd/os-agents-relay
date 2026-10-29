@@ -1,0 +1,27 @@
+{
+  "name": "os-agents-relay",
+  "version": "0.1.0",
+  "description": "Relais et kit de connexion entre agents d'OS d'entreprise (Alpes OS, SIMATIS OS).",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./kit/index.d.ts",
+      "default": "./kit/index.js"
+    }
+  },
+  "types": "./kit/index.d.ts",
+  "files": [
+    "kit/",
+    "!kit/**/*.test.js"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test kit/",
+    "test:relais": "npm --prefix relais test",
+    "e2e": "node scripts/e2e.js"
+  },
+  "license": "UNLICENSED",
+  "private": true
+}
