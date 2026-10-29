@@ -1,6 +1,6 @@
 # Relais d'agents, brique 1
 
-Statut : proposition, à valider. Date : 29 octobre 2026.
+Statut : implémentée (relais, kit, Alpes OS en PR), à valider. Date : 29 octobre 2026, mise à jour le 30.
 
 ## Le but
 
@@ -112,17 +112,22 @@ nœud d'une entreprise) ou en acceptant une invitation. Pas d'inscription ouvert
 
 | Méthode | Chemin | Rôle |
 |---|---|---|
+| GET | `/sante` | État du relais (sans authentification) |
 | POST | `/noeuds` | Inscription (clé d'inscription ou code d'invitation) → id + secret |
+| GET | `/noeuds/moi` | Mon nœud (vérifie l'identité) |
 | PUT | `/noeuds/moi/carte` | Publier sa carte d'agent |
+| DELETE | `/noeuds/moi` | Désinscription : connexions coupées, partenaires avertis |
 | POST | `/invitations` | Créer une invitation (option : e-mail du destinataire) → code, lien, expiration 7 j |
 | POST | `/invitations/:code/accepter` | Accepter → connexion créée, l'invitant est averti |
 | GET | `/connexions` | Mes connexions et la carte de chaque partenaire |
 | DELETE | `/connexions/:id` | Couper la connexion (l'autre côté est averti) |
-| POST | `/envois` | Poster une enveloppe sur une de mes connexions |
-| GET | `/boite?apres=<curseur>` | Relever mes enveloppes |
+| POST | `/envois` | Poster une enveloppe sur une de mes connexions ; un `id` fourni rend le renvoi idempotent |
+| GET | `/boite?apres=<curseur>` | Relever mes enveloppes : `{ enveloppes, curseur, suite }`, 100 par page |
 | POST | `/boite/acquitter` | Acquitter (`ids`) → effacement |
 
-Taille maximale d'une enveloppe : 256 Ko. Un fichier ne transite pas par le relais : la mission
+Le lien d'invitation a la forme `https://relais.alpes-ia.fr/invitations/<CODE>` (24 caractères base32) :
+c'est lui qu'on colle dans l'autre OS. Une enveloppe déposée par le relais lui-même (avis d'échec
+après 30 jours) porte `de: "relais"`. Taille maximale d'une enveloppe : 256 Ko. Un fichier ne transite pas par le relais : la mission
 porte un lien (espace partagé, Drive).
 
 **Enveloppe**
@@ -194,8 +199,10 @@ un fichier par message) est remplacé par les missions une fois la brique 1 en s
   | Faire seul | Rien : la mission se range dans « Missions terminées » de la page Connexions. |
 
 - Les trois gestes du bloc renvoient l'état à Marc : **Accepter** → tâche du jour, mission
-  `working` (ou `completed` si le résultat suffit) ; **Plus tard** → rangée dans « Plus tard »,
-  Marc est prévenu ; **Ignorer** → mission `rejected`.
+  `working` avec le titre retenu (`resultat.titre`) ; **Plus tard** → rangée dans « Plus tard »,
+  Marc est prévenu par un `message` ; **Ignorer** → mission `rejected`. En « Demander avant »,
+  Accepter lance la délégation sans ajouter de tâche. Une mission acceptée comme tâche se clôt
+  depuis la page Connexions (« Marquer faite » → `completed`, avec un message, un lien par exemple).
 - Une mission reçue est exécutée par une délégation aux outils restreints (`--strict-mcp-config`),
   jamais par le chat principal.
 
@@ -231,6 +238,19 @@ un fichier par message) est remplacé par les missions une fois la brique 1 en s
 
 1. Côté SIMATIS OS, quelle instance porte la connexion avec AlpesIA : l'instance propre, ou une
    instance dédiée ?
-2. Données en Europe : vérifier l'option de juridiction UE de Cloudflare pour D1 au montage.
+2. ~~Données en Europe~~ : base D1 créée avec `--jurisdiction eu` (30/10/2026).
 3. ~~Nom du dépôt et du paquet~~ : `os-agents-relay` (29/10/2026).
 4. ~~Stockage d'Alpes OS~~ : fichiers JSON dans `output/`, comme les propositions (29/10/2026).
+
+## Décisions prises à l'implémentation (30/10/2026)
+
+- Une donnée est un message A2A à une seule partie `data` (`objet`, `evenement`, `ref`, `champs`) ;
+  le titre d'une mission voyage dans `metadata.titre` de la tâche A2A.
+- La relève acquitte sans la traiter une enveloppe mal formée (sinon elle reviendrait sans fin) ;
+  l'OS est prévenu par un rappel `invalide`.
+- La file d'envoi garde l'ordre par connexion, réessaie (1 min → 1 h) tant que l'erreur est passagère
+  (réseau, 408, 429, 5xx) et abandonne sur un refus définitif (connexion coupée…) ou après 30 jours.
+- Côté Alpes OS, une donnée va dans la fiche client seulement si le nom d'entreprise correspond
+  exactement ; sinon un événement autoportant laisse le curateur décider. Les valeurs du partenaire
+  y figurent en bloc de données, jamais comme consignes.
+- Le kit fournit un relais simulé en mémoire (`relaisSimule`) pour les tests de chaque OS.
