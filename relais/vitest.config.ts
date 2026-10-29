@@ -1,6 +1,16 @@
+import path from 'node:path';
 import { defineConfig } from 'vitest/config';
-import { cloudflareTest } from '@cloudflare/vitest-plugin';
+import { cloudflareTest, readD1Migrations } from '@cloudflare/vitest-plugin';
 
-export default defineConfig({
-  plugins: [cloudflareTest({ wrangler: { configPath: './wrangler.jsonc' } })],
+export default defineConfig(async () => {
+  const migrations = await readD1Migrations(path.join(import.meta.dirname, 'migrations'));
+  return {
+    plugins: [
+      cloudflareTest({
+        wrangler: { configPath: './wrangler.jsonc' },
+        miniflare: { bindings: { CLE_INSCRIPTION: 'cle-de-test', TEST_MIGRATIONS: migrations } },
+      }),
+    ],
+    test: { setupFiles: ['./test/migrations.ts'] },
+  };
 });
