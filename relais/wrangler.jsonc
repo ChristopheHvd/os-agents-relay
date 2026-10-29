@@ -3,5 +3,13 @@
   "name": "os-agents-relay",
   "main": "src/index.ts",
   "compatibility_date": "2026-10-20",
-  "observability": { "enabled": true }
+  "observability": { "enabled": true },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "os-agents-relay",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "triggers": { "crons": ["17 3 * * *"] }
 }
