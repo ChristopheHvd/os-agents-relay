@@ -141,8 +141,8 @@ porte un lien (espace partagé, Drive).
 
 ## Le kit de connexion
 
-Un paquet TypeScript publié depuis ce dépôt, installé dans chaque OS. Il ne connaît ni Postgres
-ni SQLite : chaque OS lui fournit son stockage par une petite interface.
+Un paquet JavaScript (ESM, sans build, types fournis) publié depuis ce dépôt, installé dans chaque
+OS. Il ne connaît ni Postgres ni fichiers : chaque OS lui fournit son stockage par une petite interface.
 
 - **Client du relais** : inscription, carte d'agent, invitations, connexions.
 - **Relève** : au démarrage puis toutes les 60 s. Enregistre les enveloppes (idempotent sur `id`),
@@ -161,7 +161,7 @@ Le dépôt contient aussi `relais/` (le Worker) et cette spec.
 |---|---|
 | Relais | Seulement ce qui transite, effacé à la relève. Plus l'annuaire (nœuds, connexions, invitations). |
 | SIMATIS OS (Postgres, par instance) | Partenaires, missions envoyées et reçues, file d'envoi. Les retours deviennent des sujets de l'Inbox et des lignes du journal. Le CRM reste dans ses tables. |
-| Alpes OS (SQLite locale, nouveau) | Partenaires, réglages d'autonomie, missions, données reçues, file d'envoi. |
+| Alpes OS (fichiers JSON dans `output/`) | Partenaires, réglages d'autonomie, missions, données reçues, file d'envoi. Même principe que les propositions. |
 | Second cerveau | Le savoir qui en sort : fiches prospects et clients mises à jour par les données reçues, « Marc a demandé le livre blanc n° 3, livré le … ». Par événements dans la file du curateur, comme aujourd'hui. |
 | Espace partagé (kDrive) | Les documents communs : offre, tarifs, pitch, livres blancs, comptes rendus. Les missions y renvoient par lien. Alpes OS l'affiche dans l'onglet Second brain (« Partagé avec Marc »). |
 
@@ -178,7 +178,8 @@ un fichier par message) est remplacé par les missions une fois la brique 1 en s
 
 ## Côté Alpes OS (brique 1)
 
-- Base SQLite locale (`node:sqlite`, rien à installer) : partenaires, missions, file d'envoi.
+- Fichiers JSON dans `output/`, écriture atomique, comme `lib/propositions.js` : partenaires,
+  missions, données reçues, file d'envoi.
 - Page Connexions sous l'onglet Outils (maquette : https://claude.ai/artifact/CjxVHbY2qSe3AEEExog1Nb).
 - Une mission reçue devient une **proposition** du bloc Propositions d'Aujourd'hui, le même que la
   revue horaire (`lib/propositions.js`, en cours de refonte : relire son format sur `main` avant de
@@ -231,6 +232,5 @@ un fichier par message) est remplacé par les missions une fois la brique 1 en s
 1. Côté SIMATIS OS, quelle instance porte la connexion avec AlpesIA : l'instance propre, ou une
    instance dédiée ?
 2. Données en Europe : vérifier l'option de juridiction UE de Cloudflare pour D1 au montage.
-3. Nom définitif du dépôt et du paquet.
-4. Stockage d'Alpes OS : les propositions de la refonte vivent dans un fichier local de `output/`,
-   cette spec met partenaires et missions dans SQLite. Un seul stockage pour les deux ?
+3. ~~Nom du dépôt et du paquet~~ : `os-agents-relay` (29/10/2026).
+4. ~~Stockage d'Alpes OS~~ : fichiers JSON dans `output/`, comme les propositions (29/10/2026).
