@@ -58,7 +58,9 @@ async function relaisLocal() {
   const cle = randomBytes(32).toString('base64url');
   const processus = spawn(
     wrangler,
-    ['dev', '--local', '--ip', '127.0.0.1', '--port', String(port), '--persist-to', etat, '--var', `CLE_INSCRIPTION:${cle}`],
+    // The custom-domain route would otherwise make the Worker see relais.alpes-ia.fr as its origin.
+    ['dev', '--local', '--ip', '127.0.0.1', '--port', String(port), '--local-upstream', `127.0.0.1:${port}`, '--upstream-protocol', 'http',
+      '--persist-to', etat, '--var', `CLE_INSCRIPTION:${cle}`],
     { cwd: dossierRelais, env, detached: true, stdio: ['ignore', 'pipe', 'pipe'] },
   );
   const journal = [];
