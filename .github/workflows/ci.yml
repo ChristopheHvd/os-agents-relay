@@ -19,6 +19,10 @@ jobs:
             relais/package-lock.json
       - name: Kit
         run: npm ci && npm test
+      - name: Types du kit à jour
+        run: npm run types && git diff --exit-code -- kit && test -z "$(git status --porcelain -- kit)"
       - name: Relais
         working-directory: relais
         run: npm ci && npm test
+      - name: Bout en bout (relais local)
+        run: npm run e2e

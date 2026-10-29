@@ -18,10 +18,14 @@
     "node": ">=22"
   },
   "scripts": {
-    "test": "node --test kit/",
+    "test": "node --test 'kit/*.test.js'",
     "test:relais": "npm --prefix relais test",
-    "e2e": "node scripts/e2e.js"
+    "e2e": "node scripts/e2e.js",
+    "types": "rm -f kit/*.d.ts && tsc -p tsconfig.kit.json"
   },
   "license": "UNLICENSED",
-  "private": true
+  "private": true,
+  "devDependencies": {
+    "typescript": "^7.0.2"
+  }
 }
