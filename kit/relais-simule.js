@@ -1,5 +1,9 @@
 // In-memory stand-in for the relay HTTP API, for the tests of the kit and of each OS.
-// Same routes, same answers in the nominal cases; no persistence, no expiry, no size limit.
+// Same routes, same answers in the nominal cases, same envelope types and size limit;
+// no persistence, no expiry.
+
+const TYPES = ['mission', 'etat', 'message', 'donnee', 'connexion'];
+const TAILLE_MAX = 256 * 1024;
 
 /**
  * @typedef {object} RelaisSimule
@@ -139,6 +143,8 @@ export function relaisSimule({ url = 'https://relais.test', cle = 'cle-de-test' 
         return reponse(200, { ok: true });
       }
       if (methode === 'POST' && chemin === '/envois') {
+        if (new TextEncoder().encode(String(init.body ?? '')).length > TAILLE_MAX) return erreur(413, 'trop volumineux');
+        if (!TYPES.includes(corps.type)) return erreur(400, `type attendu : ${TYPES.join(', ')}`);
         const c = connexions.get(corps.connexion);
         if (!c || (c.a !== moi.id && c.b !== moi.id) || c.coupee) return erreur(403, 'connexion inconnue');
         const existante = corps.id && enveloppes.find((e) => e.id === corps.id);

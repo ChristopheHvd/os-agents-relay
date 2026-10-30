@@ -300,3 +300,29 @@ Les contacts sont des données personnelles qui passent d'une entreprise à une 
    Marc le décide (réglage de la connexion).
 3. Envoi d'un message par l'agent de Marc : selon le niveau d'autonomie réglé par Marc.
 4. Missions reçues par SIMATIS OS : dans cette brique.
+
+## Décisions prises à l'implémentation du kit (30/10/2026)
+
+- Le corps d'une enveloppe `donnee` est le lot lui-même (`{ profil, changements, instantane? }`), sans
+  message A2A autour. Une donnée de la brique 1 n'est plus valide.
+- Format strict : un objet, un champ ou un lien inconnu (hors `x_…`), une valeur du mauvais type ou un
+  champ obligatoire vidé font refuser le changement dès `changement()`, donc à l'envoi. Les champs
+  internes (`source`, `event_id`, `participants`…) sont refusés de ce fait.
+- Types : `montant`, `taille`, `duree_*` entiers ; `echeance` d'une affaire en date `AAAA-MM-JJ`, les
+  autres moments en horodatage ISO 8601 ; `probabilite_manuelle` de 0 à 100 ; une étape du `pipeline`
+  a `id`, `libelle`, `ordre`, `clos`, `gagne` et, si connue, `probabilite`.
+- Dans la fiche que l'OS passe au kit, un champ absent n'est pas partagé (rien ne change chez l'autre)
+  et `null` le vide, comme dans l'enveloppe.
+- Le dernier état échangé garde la date de chaque champ : `retenir()` après un envoi, `fusionner()` à
+  la réception. C'est ce qui fait converger vers la plus récente deux modifications croisées (parties
+  avant que chacun ait reçu celle de l'autre). À la même seconde, la même valeur gagne des deux côtés.
+- Un conflit est signalé une fois, par le côté qui voit les deux valeurs : pas forcément celui dont la
+  valeur a perdu.
+- `decouper()` range les changements par objet (pipeline, entreprises, contacts, affaires, tâches,
+  rendez-vous, activités) en gardant leur ordre dans chaque objet. Un lot fait au plus 255 Ko : le reste
+  des 256 Ko du relais va à l'enveloppe.
+- Message libre : message A2A sans `taskId`, `role: 'user'` ; `en_reponse_a` est le `messageId` du
+  message d'origine, facultatif même pour une réponse. `lireMessageLibre()` renvoie `null` pour une note
+  de mission.
+- Ajouts : `reference()` et `lireReference()` ; le relais simulé refuse, comme le vrai, les types
+  inconnus et les enveloppes de plus de 256 Ko.

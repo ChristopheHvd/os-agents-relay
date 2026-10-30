@@ -4,10 +4,8 @@ export type EtatMission = 'submitted' | 'working' | 'input-required' | 'complete
 export declare const ETATS: readonly EtatMission[];
 /** @type {readonly EtatMission[]} */
 export declare const ETATS_FINAUX: readonly EtatMission[];
-export declare const OBJETS_DONNEE: readonly ['prospect', 'rendez_vous', 'affaire', 'compte_rendu'];
-export declare const EVENEMENTS_DONNEE: readonly ['cree', 'modifie', 'gagne', 'perdu'];
-export type ObjetDonnee = (typeof OBJETS_DONNEE)[number];
-export type EvenementDonnee = (typeof EVENEMENTS_DONNEE)[number];
+export declare const TYPES_MESSAGE: readonly ['question', 'reponse', 'info'];
+export type TypeMessage = (typeof TYPES_MESSAGE)[number];
 export type Part = {
     kind: 'text';
     text: string;
@@ -72,8 +70,7 @@ export type CarteAgent = {
         url: string;
     };
 };
-/** @typedef {(typeof OBJETS_DONNEE)[number]} ObjetDonnee */
-/** @typedef {(typeof EVENEMENTS_DONNEE)[number]} EvenementDonnee */
+/** @typedef {(typeof TYPES_MESSAGE)[number]} TypeMessage */
 /**
  * @typedef {{ kind: 'text', text: string } | { kind: 'data', data: Record<string, unknown> } | { kind: 'file', file: { uri: string, name?: string, mimeType?: string } }} Part
  */
@@ -156,7 +153,7 @@ export declare function etat({ mission: m, etat: state, message: texte, resultat
     resultat?: string | Record<string, unknown>;
 }): Etat;
 /**
- * A free message, optionally about a mission (e.g. "postponed").
+ * A note about a mission (e.g. "postponed").
  * @param {{ texte: string, mission?: string | { id: string, contextId?: string } }} options
  * @returns {Message}
  */
@@ -168,15 +165,17 @@ export declare function note({ texte, mission: m }: {
     };
 }): Message;
 /**
- * A fact of the sales follow-up pushed to the partner (A2A Message with one data part).
- * @param {{ objet: ObjetDonnee, evenement: EvenementDonnee, ref: string, champs?: Record<string, string | number | boolean | null> }} options
+ * A free message to the partner, tied to no mission: Markdown text, links included (a file never
+ * travels). It cannot be changed once sent: answer with another one.
+ * @param {{ type: TypeMessage, sujet: string, texte: string, en_reponse_a?: string }} options
+ *   `en_reponse_a`: `messageId` of the message answered.
  * @returns {Message}
  */
-export declare function donnee({ objet, evenement, ref, champs }: {
-    objet: ObjetDonnee;
-    evenement: EvenementDonnee;
-    ref: string;
-    champs?: Record<string, string | number | boolean | null>;
+export declare function messageLibre({ type, sujet, texte, en_reponse_a }: {
+    type: TypeMessage;
+    sujet: string;
+    texte: string;
+    en_reponse_a?: string;
 }): Message;
 /**
  * @param {{ nom: string, description: string, url?: string, organisation?: string, competences?: { id: string, nom: string, description?: string }[] }} options
@@ -230,14 +229,16 @@ export declare function lireEtat(e: Etat): {
 };
 /**
  * @param {Message} m
- * @returns {{ objet: ObjetDonnee, evenement: EvenementDonnee, ref: string, champs: Record<string, string | number | boolean | null> }}
+ * @returns {{ id: string, type: TypeMessage, sujet: string, texte: string, en_reponse_a: string | null } | null}
+ *   null for a note about a mission (read it with `lireNote`).
  */
-export declare function lireDonnee(m: Message): {
-    objet: ObjetDonnee;
-    evenement: EvenementDonnee;
-    ref: string;
-    champs: Record<string, string | number | boolean | null>;
-};
+export declare function lireMessageLibre(m: Message): {
+    id: string;
+    type: TypeMessage;
+    sujet: string;
+    texte: string;
+    en_reponse_a: string | null;
+} | null;
 /**
  * @param {Message} m
  * @returns {{ mission: string | null, texte: string }}
