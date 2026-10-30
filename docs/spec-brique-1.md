@@ -75,6 +75,8 @@ l'étape 2, elle attend dans la file d'envoi de SIMATIS OS.
 
 ## Les données poussées
 
+Remplacées par le profil CRM de la brique 2 (`docs/spec-brique-2.md`), avant leur mise en service.
+
 Une donnée décrit un fait du suivi commercial, en champs fixes pour que chaque OS la range sans IA :
 
 ```json
