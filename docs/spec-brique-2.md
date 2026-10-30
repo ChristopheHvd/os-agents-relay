@@ -1,6 +1,6 @@
 # Relais d'agents, brique 2 : profil CRM et messages libres
 
-Statut : spec, à valider. Date : 30 octobre 2026.
+Statut : validée, en cours d'implémentation. Date : 30 octobre 2026.
 
 ## Le but
 
@@ -15,7 +15,7 @@ La brique 2 ajoute deux choses au-dessus de la brique 1, sans toucher au relais 
 2. **Les messages libres** : du texte Markdown échangé sans mission, comme le dossier `echanges/`
    de l'espace partagé, qu'ils remplacent.
 
-Les missions restent telles quelles.
+Elle complète aussi les missions : SIMATIS OS reçoit désormais des missions, et Alpes OS en envoie.
 
 ## Décisions de départ (Christophe, 30/10/2026)
 
@@ -26,6 +26,8 @@ Les missions restent telles quelles.
   (HubSpot est déjà là), elle n'en ajoute pas.
 - **Ce que voit un partenaire se règle par entreprise cliente** : Alpes OS ne voit que ce qui
   concerne AlpesIA, et il en ira de même pour chaque client de Marc.
+- **AlpesIA a déjà son instance client** dans SIMATIS OS : c'est elle qui porte la connexion.
+- **Les missions vont dans les deux sens** dès cette brique : Alpes OS peut aussi confier une mission à Marc.
 - **Le vrai essai** se fait sur le vrai relais, mené par Marc, une fois la brique 2 livrée : on
   développe SIMATIS OS pour lui, il met sa version à jour.
 
@@ -54,9 +56,9 @@ Réglages de la connexion, côté expéditeur (« Alpes OS voit ») :
 
 - **Objets partagés** : entreprises, contacts, affaires, tâches, rendez-vous, activités. Tous cochés par défaut.
 - **Champs exclus** : comme les champs exclus de la synchro HubSpot (téléphone, montant…).
-- **Champs internes**, jamais envoyés sauf réglage explicite : la qualification, le potentiel et la
-  faisabilité d'une affaire (la méthode de Marc), et les rendez-vous qui ne sont pas des rendez-vous
-  commerciaux (`statut` autre que `rdv`).
+- **Qualification d'une affaire** (qualification, potentiel, faisabilité) : Marc en est responsable
+  et décide, connexion par connexion, de la partager avec le client. Case non cochée par défaut.
+- Les rendez-vous qui ne sont pas des rendez-vous commerciaux (`statut` autre que `rdv`) ne partent jamais.
 
 Côté Alpes OS, rien d'autre ne part que les fiches reçues de cette connexion et celles que
 Christophe y crée : ses autres clients ne quittent jamais Alpes OS.
@@ -71,7 +73,7 @@ Les noms sont ceux de SIMATIS OS. `*` = obligatoire.
 |---|---|---|
 | `entreprise` | `nom`*, `secteur`, `ville`, `taille`, `domaine` | |
 | `contact` | `nom`*, `fonction`, `email`, `emails` (les autres adresses), `telephone`, `role` | `entreprises` |
-| `affaire` | `titre`*, `etape`*, `montant` (euros, entier), `echeance`, `clos` (`gagne` \| `perdu`), `motif`, `proprietaire` (nom affiché), `origine`, `prochaine_etape`, `mode_facturation` (`spot` \| `recurrent`), `duree_engagement_mois`, `tacite_reconduction`, `probabilite_manuelle`, `derniere_activite`, `etapes_dates` | `contacts`, `entreprises` |
+| `affaire` | `titre`*, `etape`*, `montant` (euros, entier), `echeance`, `clos` (`gagne` \| `perdu`), `motif`, `proprietaire` (nom affiché), `origine`, `prochaine_etape`, `mode_facturation` (`spot` \| `recurrent`), `duree_engagement_mois`, `tacite_reconduction`, `probabilite_manuelle`, `derniere_activite`, `etapes_dates` ; si la qualification est partagée : `qualification` (`{ besoin, decideur, budget, timing, engagement }`, entiers), `potentiel`, `faisabilite` | `contacts`, `entreprises` |
 | `tache` | `titre`*, `type`* (`appel`, `email`, `tache`, `reunion`, `echeance`, `dejeuner`), `echeance`, `avec_heure`, `duree_minutes`, `occupe`, `fait_at`, `notes` | `contact`, `entreprise`, `affaire` |
 | `rendez_vous` | `titre`*, `debut`*, `fin`, `lieu`, `compte_rendu`, `compte_rendu_at` | `contacts`, `entreprises`, `affaires` |
 | `activite` | `type`* (`note`, `appel`, `email`, `reunion`), `at`*, `titre`, `resume` | `contact`, `entreprise`, `affaire` |
@@ -185,12 +187,26 @@ règles du dossier `echanges/` de l'espace partagé.
 - Un message ne se modifie plus une fois parti ; on répond par un autre message.
 - Un fichier ne voyage pas : le message porte un lien (espace partagé, Drive).
 - **SIMATIS OS** : un message reçu devient un sujet de l'Inbox. Outil MCP
-  `envoyer_message(partenaire, type, sujet, texte, en_reponse_a?)`, au niveau L2 par défaut (Marc
-  valide l'envoi), comme `envoyer_donnee`.
+  `envoyer_message(partenaire, type, sujet, texte, en_reponse_a?)`. Il suit le niveau d'autonomie
+  que Marc a réglé pour les envois aux partenaires (L0 à L3), comme les autres actions de SIMATIS OS.
 - **Alpes OS** : un message reçu apparaît dans la fiche du partenaire (page Connexions) ; une
   question arrive aussi dans Aujourd'hui. Christophe répond depuis la fiche ou par l'assistant.
 - Une fois en service, le dossier `echanges/` de l'espace partagé n'est plus utilisé. L'espace
   reste la bibliothèque de documents.
+
+## Les missions dans les deux sens
+
+La brique 1 ne faisait partir les missions que de SIMATIS OS vers Alpes OS. La brique 2 ouvre
+l'autre sens, avec les mêmes règles (format A2A, quatre niveaux d'autonomie, garde-fous fixes).
+
+- **SIMATIS OS reçoit** : selon le niveau réglé par Marc sur la connexion (déjà stocké en brique 1,
+  colonne `niveau` de `partenaires`), la mission devient une proposition de l'Inbox (L0, L1), est
+  préparée par l'agent puis validée par Marc (L2), ou est faite seule (L3). Accepter, refuser ou
+  clore renvoie l'état à Alpes OS. Les garde-fous fixes s'appliquent par les outils, comme pour
+  les autres actions de SIMATIS OS.
+- **Alpes OS envoie** : « Confier une mission » dans la fiche du partenaire (titre, consigne,
+  échéance), et un outil de l'assistant pour le faire en conversation. Les états reçus mettent à
+  jour la mission dans la fiche ; une mission terminée ou refusée arrive aussi dans Aujourd'hui.
 
 ## Le kit
 
@@ -215,6 +231,7 @@ sert aux tests des deux OS.
 - Réglages « … voit » : objets et champs exclus (remplace les quatre cases de la brique 1).
 - Inbox : conflits, suppressions à confirmer, messages libres.
 - Outils MCP : `envoyer_message` ; `envoyer_donnee` disparaît (la synchro est automatique).
+- Missions reçues : voir « Les missions dans les deux sens ».
 
 ## Côté Alpes OS
 
@@ -231,7 +248,7 @@ Alpes OS n'a pas de CRM : il garde une **copie** du suivi commercial partagé, a
 - Second cerveau : seulement les faits marquants (affaire gagnée ou perdue, rendez-vous pris,
   compte rendu), par événement dans la file du curateur. Le reste vit dans la copie, pour ne pas
   noyer le curateur.
-- Messages libres : voir plus haut.
+- Messages libres et missions envoyées : voir plus haut.
 
 ## Données personnelles
 
@@ -256,7 +273,6 @@ Les contacts sont des données personnelles qui passent d'une entreprise à une 
 ## Hors brique 2
 
 - Nouveaux connecteurs CRM (Odoo…) : quand un client en aura besoin.
-- Missions reçues par SIMATIS OS (Alpes OS qui confie une mission à Marc).
 - Chiffrement de bout en bout : avant la première installation chez un client de Marc.
 - Livraison immédiate (connexion permanente) au lieu de la relève par minute.
 
@@ -273,13 +289,14 @@ Les contacts sont des données personnelles qui passent d'une entreprise à une 
 7. Un OS éteint rattrape tout au redémarrage, une seule fois, dans l'ordre ; une modification reçue
    ne repart pas.
 8. Un message libre en Markdown passe dans les deux sens et se range au bon endroit.
-9. Tests verts des deux côtés, avec des données fictives uniquement.
+9. Christophe confie une mission à Marc depuis Alpes OS : elle suit le niveau réglé par Marc, et
+   son état revient dans la fiche du partenaire.
+10. Tests verts des deux côtés, avec des données fictives uniquement.
 
-## Questions ouvertes
+## Réponses de Christophe pour Marc (30/10/2026)
 
-1. AlpesIA a-t-elle déjà son instance `mandat` dans SIMATIS OS, et que contient-elle (affaires
-   suivies par Marc pour AlpesIA seulement) ?
-2. Qualification, potentiel, faisabilité d'une affaire : réservés à Marc (défaut) ou partagés avec
-   le client ?
-3. Envoi d'un message libre par l'agent de Marc : L2 (Marc valide, défaut) ou L3 ?
-4. Missions reçues par SIMATIS OS : dans cette brique, ou après ?
+1. AlpesIA a déjà son instance client dans SIMATIS OS : elle porte la connexion.
+2. Qualification, potentiel, faisabilité : responsabilité de Marc, partageables avec le client si
+   Marc le décide (réglage de la connexion).
+3. Envoi d'un message par l'agent de Marc : selon le niveau d'autonomie réglé par Marc.
+4. Missions reçues par SIMATIS OS : dans cette brique.
