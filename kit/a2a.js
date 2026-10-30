@@ -1,5 +1,8 @@
 // A2A objects (Task, Message, TaskStatusUpdateEvent, AgentCard) used as the envelope format.
-// The relay does not expose A2A endpoints: only the JSON shapes are shared.
+// The relay does not expose A2A endpoints: only the JSON shapes are shared. A `donnee` envelope
+// carries a batch of the CRM profile instead (crm.js).
+
+import { verifierLot } from './crm.js';
 
 /** @typedef {'submitted' | 'working' | 'input-required' | 'completed' | 'failed' | 'canceled' | 'rejected'} EtatMission */
 
@@ -8,11 +11,9 @@ export const ETATS = ['submitted', 'working', 'input-required', 'completed', 'fa
 /** @type {readonly EtatMission[]} */
 export const ETATS_FINAUX = ['completed', 'failed', 'canceled', 'rejected'];
 
-export const OBJETS_DONNEE = /** @type {const} */ (['prospect', 'rendez_vous', 'affaire', 'compte_rendu']);
-export const EVENEMENTS_DONNEE = /** @type {const} */ (['cree', 'modifie', 'gagne', 'perdu']);
+export const TYPES_MESSAGE = /** @type {const} */ (['question', 'reponse', 'info']);
 
-/** @typedef {(typeof OBJETS_DONNEE)[number]} ObjetDonnee */
-/** @typedef {(typeof EVENEMENTS_DONNEE)[number]} EvenementDonnee */
+/** @typedef {(typeof TYPES_MESSAGE)[number]} TypeMessage */
 
 /**
  * @typedef {{ kind: 'text', text: string } | { kind: 'data', data: Record<string, unknown> } | { kind: 'file', file: { uri: string, name?: string, mimeType?: string } }} Part
@@ -148,7 +149,7 @@ export function etat({ mission: m, etat: state, message: texte, resultat }) {
 }
 
 /**
- * A free message, optionally about a mission (e.g. "postponed").
+ * A note about a mission (e.g. "postponed").
  * @param {{ texte: string, mission?: string | { id: string, contextId?: string } }} options
  * @returns {Message}
  */
@@ -161,14 +162,17 @@ export function note({ texte, mission: m }) {
 }
 
 /**
- * A fact of the sales follow-up pushed to the partner (A2A Message with one data part).
- * @param {{ objet: ObjetDonnee, evenement: EvenementDonnee, ref: string, champs?: Record<string, string | number | boolean | null> }} options
+ * A free message to the partner, tied to no mission: Markdown text, links included (a file never
+ * travels). It cannot be changed once sent: answer with another one.
+ * @param {{ type: TypeMessage, sujet: string, texte: string, en_reponse_a?: string }} options
+ *   `en_reponse_a`: `messageId` of the message answered.
  * @returns {Message}
  */
-export function donnee({ objet, evenement, ref, champs = {} }) {
-  const d = message('', { data: { objet, evenement, ref, champs } });
-  valider('donnee', d);
-  return d;
+export function messageLibre({ type, sujet, texte, en_reponse_a }) {
+  const m = message(texte, { role: 'user' });
+  m.metadata = { type, sujet: typeof sujet === 'string' ? sujet.trim() : sujet, ...(en_reponse_a ? { en_reponse_a } : {}) };
+  valider('message', m);
+  return m;
 }
 
 /**
@@ -238,20 +242,18 @@ const VERIFS = {
   },
   message(c, p) {
     verifierMessage(c, 'message', p);
+    // A message with no mission and a metadata type is a free message: its fields are fixed.
+    if (c.taskId || !estObjet(c.metadata) || c.metadata.type === undefined) return;
+    const { type, sujet, en_reponse_a } = c.metadata;
+    if (!(/** @type {readonly unknown[]} */ (TYPES_MESSAGE)).includes(type)) p.push(`metadata.type : un de ${TYPES_MESSAGE.join(', ')}`);
+    if (typeof sujet !== 'string' || !sujet.trim() || /[\r\n]/.test(sujet)) p.push('metadata.sujet : une ligne de texte attendue');
+    if (en_reponse_a !== undefined && (typeof en_reponse_a !== 'string' || !en_reponse_a)) p.push('metadata.en_reponse_a : id de message attendu');
+    if (!(Array.isArray(c.parts) && c.parts.some((/** @type {any} */ x) => x?.kind === 'text' && typeof x.text === 'string' && x.text.trim()))) {
+      p.push('message : le texte manque');
+    }
   },
   donnee(c, p) {
-    verifierMessage(c, 'message', p);
-    const data = Array.isArray(c.parts) ? c.parts.find((/** @type {Part} */ x) => x?.kind === 'data')?.data : undefined;
-    if (!estObjet(data)) return void p.push('partie data manquante');
-    if (!(/** @type {readonly unknown[]} */ (OBJETS_DONNEE)).includes(data.objet)) p.push(`objet : un de ${OBJETS_DONNEE.join(', ')}`);
-    if (!(/** @type {readonly unknown[]} */ (EVENEMENTS_DONNEE)).includes(data.evenement)) p.push(`evenement : un de ${EVENEMENTS_DONNEE.join(', ')}`);
-    if (typeof data.ref !== 'string' || !data.ref.trim()) p.push('ref manquante');
-    if (!estObjet(data.champs)) p.push('champs : objet attendu');
-    else {
-      for (const [cle, v] of Object.entries(data.champs)) {
-        if (v !== null && !['string', 'number', 'boolean'].includes(typeof v)) p.push(`champs.${cle} : valeur simple attendue`);
-      }
-    }
+    p.push(...verifierLot(c));
   },
   connexion(c, p) {
     if (!['acceptee', 'coupee'].includes(c.evenement)) p.push('evenement : "acceptee" ou "coupee" attendu');
@@ -321,10 +323,13 @@ export function lireEtat(e) {
 
 /**
  * @param {Message} m
- * @returns {{ objet: ObjetDonnee, evenement: EvenementDonnee, ref: string, champs: Record<string, string | number | boolean | null> }}
+ * @returns {{ id: string, type: TypeMessage, sujet: string, texte: string, en_reponse_a: string | null } | null}
+ *   null for a note about a mission (read it with `lireNote`).
  */
-export function lireDonnee(m) {
-  return /** @type {any} */ (premiereDonnee(m));
+export function lireMessageLibre(m) {
+  const meta = /** @type {Record<string, any> | undefined} */ (m.metadata);
+  if (m.taskId || !estObjet(meta) || meta.type === undefined) return null;
+  return { id: m.messageId, type: meta.type, sujet: meta.sujet, texte: textes(m).join('\n\n'), en_reponse_a: meta.en_reponse_a ?? null };
 }
 
 /**
